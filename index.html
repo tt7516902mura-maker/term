@@ -154,7 +154,7 @@
 <div class="frame">
 
   <div class="topbar">
-    <div class="sysname">KAGEROU-NET<small>BREACH CONSOLE / SIMULATED ENVIRONMENT</small></div>
+    <div class="sysname">KAGEROU-NET<small>BREACH CONSOLE</small></div>
     <div class="topbar-right mono">
       <div><span class="status-dot"></span>LINK ACTIVE</div>
       <div>CIPHER: <span id="cipherName">AES-256</span></div>
@@ -314,7 +314,7 @@ function addPacket(){
 setInterval(addPacket, 350);
 for(let i=0;i<15;i++) addPacket();
 
-/* ================= デクリプター(演出) ================= */
+/* ================= デクリプター ================= */
 const decBtn = document.getElementById('decBtn');
 const decInput = document.getElementById('decInput');
 const decOut = document.getElementById('decOut');
@@ -383,10 +383,10 @@ const HELP_TEXT = [
   'connect <target>    対象への擬似接続を試行',
   'trace <ip>          擬似トレースルートを表示',
   'ping <host>         擬似pingを実行',
-  'decrypt <text>      文字列を演出的に「復号」する',
+  'decrypt <text>      文字列を復号する',
   'whoami              現在のオペレーターIDを表示',
   'status              システムステータスを表示',
-  'matrix              マトリクス演出を挿入',
+  'matrix              マトリクス表示を挿入',
   'clear               画面をクリア',
 ];
 
@@ -411,7 +411,7 @@ function handleCommand(raw){
       break;
 
     case 'whoami':
-      printLine('OPERATOR_ID: KAGE-0X7F  CLEARANCE: LEVEL-4 (SIMULATED)', 'out');
+      printLine('OPERATOR_ID: KAGE-0X7F  CLEARANCE: LEVEL-4', 'out');
       break;
 
     case 'status':
