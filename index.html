@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>KAGEROU-NET // DATA ANALYSIS TERMINAL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0D10;
+    --panel: #10161C;
+    --line: #1D2731;
+    --green: #35F1A0;
+    --green-dim: #1E7A56;
+    --amber: #FFB238;
+    --red: #FF4B5C;
+    --text: #C9D6DD;
+    --text-dim: #5C7280;
+    --cyan: #4FD3E8;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Zen Kaku Gothic New', sans-serif;
+    overflow:hidden;
+    position:relative;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0px, rgba(255,255,255,0.018) 1px, transparent 1px, transparent 3px);
+    pointer-events:none;
+    z-index: 50;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events:none;
+    z-index: 49;
+  }
+  .mono{ font-family:'JetBrains Mono', monospace; }
+  .frame{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  /* ---- TOP BAR ---- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border:1px solid var(--line);
+    background: linear-gradient(180deg, #12181F, #0D1216);
+    padding: 9px 16px;
+    flex-shrink:0;
+  }
+  .sysname{
+    font-family:'Rajdhani', sans-serif;
+    font-weight:700;
+    font-size: 20px;
+    letter-spacing: 0.14em;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(53,241,160,0.45);
+    animation: flicker 6s infinite;
+  }
+  @keyframes flicker{
+    0%,100%{ opacity:1; }
+    92%{ opacity:1; }
+    93%{ opacity:0.55; }
+    94%{ opacity:1; }
+    96%{ opacity:0.7; }
+    97%{ opacity:1; }
+  }
+  .sysname small{ display:block; font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--text-dim); letter-spacing:0.1em; font-weight:400; margin-top:2px; }
+  .topbar-right{ display:flex; align-items:center; gap:22px; font-size:12px; }
+  .status-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; background: var(--green); margin-right:6px; box-shadow:0 0 6px var(--green); animation: pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+  #clock{ color: var(--green); letter-spacing:0.05em; }
+
+  /* ---- TOOLVIEW SWITCHING ---- */
+  .toolview{ display:none; flex-direction:column; gap:8px; min-height:0; }
+  .toolview.active{ display:flex; flex:1; }
+
+  /* ---- MAIN GRID (analysis view) ---- */
+  .main{
+    flex:1;
+    display:grid;
+    grid-template-columns: 220px 1fr 260px;
+    gap: 8px;
+    min-height:0;
+  }
+  .panel{
+    border:1px solid var(--line);
+    background: var(--panel);
+    display:flex; flex-direction:column;
+    min-height:0;
+  }
+  .panel-full{ flex:1; min-height:0; }
+  .panel-head{
+    padding: 8px 12px;
+    border-bottom:1px solid var(--line);
+    font-size:11px;
+    letter-spacing:0.12em;
+    color: var(--text-dim);
+    text-transform:uppercase;
+    display:flex; justify-content:space-between; align-items:center;
+    flex-shrink:0;
+  }
+  .panel-head .n{ color: var(--cyan); }
+
+  /* ---- SECTOR LIST ---- */
+  .sector-list{ overflow-y:auto; flex:1; }
+  .sector-item{
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    cursor:pointer;
+    font-size:12.5px;
+    transition: background .15s;
+  }
+  .sector-item:hover{ background: #141B22; }
+  .sector-item.active{ background: #12241C; border-left: 3px solid var(--green); }
+  .sector-item .code{ font-family:'JetBrains Mono',monospace; color: var(--green); font-size:11px; }
+  .sector-item .name{ color: var(--text); margin-top:2px; }
+  .sector-item .lvl{ font-size:10px; margin-top:4px; }
+  .lvl-low{ color: var(--text-dim); }
+  .lvl-mid{ color: var(--amber); }
+  .lvl-high{ color: var(--red); }
+
+  /* ---- RADAR ---- */
+  .radar-wrap{
+    flex:1;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    overflow:hidden;
+  }
+  .radar-svg{ width:100%; height:100%; max-width:520px; max-height:520px; }
+  .ring{ fill:none; stroke: var(--line); stroke-width:1; }
+  .crosshair{ stroke: var(--line); stroke-width:1; }
+  .sweep-group{ transform-origin: 250px 250px; animation: rotate 4.5s linear infinite; }
+  @keyframes rotate{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+  .node-blip{ cursor:pointer; }
+  .node-blip circle.core{ fill: var(--green); }
+  .node-blip circle.pulse{ fill:none; stroke: var(--green); stroke-width:1.4; animation: blip 2.4s ease-out infinite; }
+  .node-blip.alert circle.core{ fill: var(--red); }
+  .node-blip.alert circle.pulse{ stroke: var(--red); }
+  @keyframes blip{ 0%{ r:4; opacity:0.9; } 100%{ r:22; opacity:0; } }
+  .node-label{ font-family:'JetBrains Mono',monospace; font-size:9px; fill: var(--text-dim); }
+
+  /* ---- LOG FEED ---- */
+  .log-feed{
+    flex:1; overflow-y:auto; padding: 8px 10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    line-height: 1.75;
+  }
+  .log-feed div{ color: var(--text-dim); }
+  .log-feed div .t{ color: var(--green-dim); margin-right:6px; }
+  .log-feed div.warn .t{ color: var(--amber); }
+  .log-feed div.warn{ color: var(--amber); }
+
+  /* ---- DETAIL PANEL ---- */
+  .detail{
+    height: 190px;
+    border:1px solid var(--line);
+    background: var(--panel);
+    display:flex;
+    flex-shrink:0;
+  }
+  .detail-left{
+    width: 260px;
+    border-right: 1px solid var(--line);
+    padding: 14px 18px;
+    flex-shrink:0;
+  }
+  .detail-left .code{ font-family:'JetBrains Mono',monospace; color:var(--green); font-size:11px; letter-spacing:0.1em; }
+  .detail-left h2{ font-family:'Rajdhani',sans-serif; font-size:26px; margin: 4px 0 10px; letter-spacing:0.03em; color:#fff; }
+  .detail-left .desc{ font-size:11.5px; color: var(--text-dim); line-height:1.6; }
+  .detail-mid{
+    flex:1;
+    padding: 14px 24px;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 30px;
+    align-content:center;
+  }
+  .metric-name{ font-size:10.5px; color: var(--text-dim); letter-spacing:0.08em; display:flex; justify-content:space-between; margin-bottom:5px; }
+  .metric-name .val{ color: var(--cyan); font-family:'JetBrains Mono',monospace; }
+  .meter{ height:5px; background:#1A222A; position:relative; overflow:hidden; }
+  .meter i{ position:absolute; left:0; top:0; bottom:0; background: linear-gradient(90deg, var(--green-dim), var(--green)); }
+  .detail-right{
+    width: 220px;
+    border-left: 1px solid var(--line);
+    padding: 14px 16px;
+    flex-shrink:0;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color: var(--text-dim);
+    display:flex; flex-direction:column; justify-content:center; gap:8px;
+  }
+  .detail-right .row{ display:flex; justify-content:space-between; }
+  .detail-right .row b{ color: var(--text); font-weight:500; }
+
+  /* ---- TODO ---- */
+  .todo-input-row{ display:flex; gap:8px; padding:10px 12px; border-bottom:1px solid var(--line); flex-shrink:0; }
+  .todo-input-row input{ flex:1; background:#0D1318; border:1px solid var(--line); color:var(--text); padding:9px 10px; font-family:'JetBrains Mono',monospace; font-size:12.5px; }
+  .todo-input-row input:focus{ outline:none; border-color:var(--green); }
+  .btn{ border:none; background:var(--green); color:#06130D; font-weight:700; padding:0 18px; font-family:'JetBrains Mono',monospace; font-size:12px; cursor:pointer; letter-spacing:0.04em; }
+  .btn:hover{ background:#4dffb0; }
+  .btn-ghost{ background:transparent; color:var(--text-dim); border:1px solid var(--line); padding:8px 16px; }
+  .btn-ghost:hover{ background:#141B22; color:var(--text); }
+  .todo-list{ list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; }
+  .todo-list li{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--line); font-size:12.5px; }
+  .todo-list li .box{ width:15px;height:15px;border:1.5px solid var(--green);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#06130D;font-size:10px; }
+  .todo-list li.done .box{ background:var(--green); }
+  .todo-list li.done span.txt{ text-decoration:line-through; color:var(--text-dim); }
+  .todo-list li span.txt{ flex:1; }
+  .todo-list li .del{ cursor:pointer; color:var(--text-dim); opacity:0.5; font-size:15px; padding:0 4px; }
+  .todo-list li .del:hover{ opacity:1; color:var(--red); }
+  .empty-note{ color:var(--text-dim); font-size:12px; font-style:italic; padding:14px 12px; }
+
+  /* ---- MEMO ---- */
+  .memo-textarea{ flex:1; width:100%; background:transparent; border:none; color:var(--text); font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.8; padding:14px; resize:none; }
+  .memo-textarea:focus{ outline:none; }
+  .save-state{ font-size:10.5px; color:var(--green-dim); font-family:'JetBrains Mono',monospace; padding:4px 14px 10px; flex-shrink:0; }
+
+  /* ---- TIMER ---- */
+  .timer-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; }
+  .mode-switch{ display:flex; gap:8px; }
+  .mode-btn{ border:1px solid var(--line); background:transparent; color:var(--text-dim); padding:7px 16px; border-radius:20px; font-size:11px; cursor:pointer; font-family:'JetBrains Mono',monospace; }
+  .mode-btn.active{ background:var(--green); color:#06130D; border-color:var(--green); font-weight:700; }
+  .ring-box{ position:relative; width:200px; height:200px; }
+  .ring-box svg{ transform:rotate(-90deg); }
+  .ring-bg{ fill:none; stroke:var(--line); stroke-width:9; }
+  .ring-fg{ fill:none; stroke:var(--green); stroke-width:9; stroke-linecap:round; transition:stroke-dashoffset 1s linear; }
+  .ring-label{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-time{ font-family:'JetBrains Mono',monospace; font-size:32px; color:var(--text); }
+  .ring-mode{ font-size:11px; color:var(--text-dim); margin-top:4px; letter-spacing:0.08em; }
+  .timer-controls{ display:flex; gap:10px; }
+
+  /* ---- CONVERTER ---- */
+  .conv-body{ padding:16px; display:flex; flex-direction:column; gap:18px; flex:1; overflow-y:auto; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{ border:1px solid var(--line); background:transparent; color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:11px; padding:7px 13px; border-radius:20px; cursor:pointer; }
+  .chip.active{ background:var(--cyan); color:#06171A; border-color:var(--cyan); font-weight:700; }
+  .conv-main{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .conv-main input{ width:140px; background:#0D1318; border:1px solid var(--line); color:var(--text); padding:11px; font-family:'JetBrains Mono',monospace; font-size:17px; }
+  .conv-main input:focus{ outline:none; border-color:var(--cyan); }
+  .conv-eq{ color:var(--text-dim); font-size:14px; }
+  .conv-result{ font-size:21px; color:var(--cyan); font-family:'JetBrains Mono',monospace; }
+  .conv-selects{ display:flex; align-items:center; gap:12px; }
+  .conv-selects select{ flex:1; background:#0D1318; border:1px solid var(--line); color:var(--text); padding:10px; font-family:'JetBrains Mono',monospace; font-size:13px; }
+  .conv-selects .arrow{ color:var(--text-dim); }
+  .conv-hint{ font-size:10.5px; color:var(--text-dim); }
+
+  /* ---- BOTTOM NAV ---- */
+  .bottomnav{ display:flex; border:1px solid var(--line); background: linear-gradient(180deg, #12181F, #0D1216); flex-shrink:0; }
+  .navbtn{ flex:1; background:transparent; border:none; color:var(--text-dim); font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.05em; padding:11px 2px; cursor:pointer; border-right:1px solid var(--line); }
+  .navbtn:last-child{ border-right:none; }
+  .navbtn.active{ color:var(--green); background:#101A15; box-shadow: inset 0 -2px 0 var(--green); }
+
+  ::-webkit-scrollbar{ width:6px; }
+  ::-webkit-scrollbar-thumb{ background: var(--line); }
+
+  @media (max-width: 900px){
+    body{ overflow-y:auto; }
+    .frame{ height:auto; min-height:100vh; }
+    .main{
+      grid-template-columns: 1fr;
+      grid-template-rows: 180px 300px 180px;
+    }
+    .sector-list{ max-height:100%; }
+    .radar-wrap{ height:100%; }
+    .log-feed{ max-height:100%; }
+    .detail{ flex-direction:column; height:auto; }
+    .detail-left,.detail-right{ width:auto; border-right:none; border-bottom:1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <div class="topbar">
+    <div class="sysname">KAGEROU-NET<small>NATIONAL DATA ANALYSIS TERMINAL</small></div>
+    <div class="topbar-right mono">
+      <div><span class="status-dot"></span>ONLINE</div>
+      <div>ENCRYPTION: <span style="color:var(--green)">AES-256</span></div>
+      <div id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="bottomnav" id="bottomNav">
+    <button class="navbtn active" data-view="analysis">解析</button>
+    <button class="navbtn" data-view="todo">TODO</button>
+    <button class="navbtn" data-view="memo">MEMO</button>
+    <button class="navbtn" data-view="timer">TIMER</button>
+    <button class="navbtn" data-view="conv">換算</button>
+  </div>
+
+  <!-- ================= 解析ビュー ================= -->
+  <div class="toolview active" id="view-analysis">
+    <div class="main">
+      <div class="panel">
+        <div class="panel-head">SECTOR LIST <span class="n" id="sectorCount">0</span></div>
+        <div class="sector-list" id="sectorList"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">TACTICAL OVERVIEW <span class="n mono">SCAN ACTIVE</span></div>
+        <div class="radar-wrap">
+          <svg class="radar-svg" viewBox="0 0 500 500">
+            <circle class="ring" cx="250" cy="250" r="220"/>
+            <circle class="ring" cx="250" cy="250" r="160"/>
+            <circle class="ring" cx="250" cy="250" r="100"/>
+            <circle class="ring" cx="250" cy="250" r="40"/>
+            <line class="crosshair" x1="30" y1="250" x2="470" y2="250"/>
+            <line class="crosshair" x1="250" y1="30" x2="250" y2="470"/>
+            <g class="sweep-group">
+              <path d="M250,250 L250,30 A220,220 0 0,1 405,105 Z" fill="url(#sweepGrad)" opacity="0.5"/>
+            </g>
+            <defs>
+              <linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#35F1A0" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#35F1A0" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <g id="nodesLayer"></g>
+          </svg>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">SYSTEM LOG</div>
+        <div class="log-feed" id="logFeed"></div>
+      </div>
+    </div>
+
+    <div class="detail">
+      <div class="detail-left">
+        <div class="code" id="dCode">SECTOR-00</div>
+        <h2 id="dName">— 選択なし —</h2>
+        <div class="desc" id="dDesc">左のリストまたはレーダー上のノードを選択すると、詳細データを表示します。</div>
+      </div>
+      <div class="detail-mid" id="dMetrics"></div>
+      <div class="detail-right" id="dSide"></div>
+    </div>
+  </div>
+
+  <!-- ================= TODOビュー ================= -->
+  <div class="toolview" id="view-todo">
+    <div class="panel panel-full">
+      <div class="panel-head">TASK LIST <span class="n mono" id="todoCount">0</span></div>
+      <div class="todo-input-row">
+        <input id="todoInput" type="text" placeholder="タスクを入力..." maxlength="120">
+        <button class="btn" id="todoAdd">追加</button>
+      </div>
+      <ul class="todo-list" id="todoList"></ul>
+    </div>
+  </div>
+
+  <!-- ================= MEMOビュー ================= -->
+  <div class="toolview" id="view-memo">
+    <div class="panel panel-full">
+      <div class="panel-head">MEMO PAD <span class="n mono">AUTO-SAVE</span></div>
+      <textarea class="memo-textarea" id="memoText" placeholder="ここに書き込むと自動保存されます..."></textarea>
+      <div class="save-state" id="saveState"></div>
+    </div>
+  </div>
+
+  <!-- ================= TIMERビュー ================= -->
+  <div class="toolview" id="view-timer">
+    <div class="panel panel-full">
+      <div class="panel-head">FOCUS TIMER <span class="n mono">POMODORO</span></div>
+      <div class="timer-wrap">
+        <div class="mode-switch">
+          <button class="mode-btn active" id="modeWork">作業 25分</button>
+          <button class="mode-btn" id="modeBreak">休憩 5分</button>
+        </div>
+        <div class="ring-box">
+          <svg width="200" height="200" viewBox="0 0 220 220">
+            <circle class="ring-bg" cx="110" cy="110" r="95"></circle>
+            <circle class="ring-fg" id="ringFg" cx="110" cy="110" r="95" stroke-dasharray="597" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="ring-label">
+            <div class="ring-time" id="ringTime">25:00</div>
+            <div class="ring-mode" id="ringMode">WORK</div>
+          </div>
+        </div>
+        <div class="timer-controls">
+          <button class="btn" id="timerStart">開始</button>
+          <button class="btn-ghost" id="timerReset">リセット</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 換算ビュー ================= -->
+  <div class="toolview" id="view-conv">
+    <div class="panel panel-full">
+      <div class="panel-head">UNIT CONVERTER <span class="n mono">11 CATEGORIES</span></div>
+      <div class="conv-body">
+        <div class="chips" id="catChips"></div>
+        <div class="conv-main">
+          <input type="number" id="convInput" value="1">
+          <span class="conv-eq">=</span>
+          <span class="conv-result mono" id="convResult">—</span>
+        </div>
+        <div class="conv-selects">
+          <select id="convFrom"></select>
+          <span class="arrow mono">→</span>
+          <select id="convTo"></select>
+        </div>
+        <div class="conv-hint mono" id="convHint"></div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+// ---------- 時計 ----------
+function tickClock(){
+  const d = new Date();
+  document.getElementById('clock').textContent = d.toLocaleTimeString('ja-JP', {hour12:false}) + ' JST';
+}
+tickClock(); setInterval(tickClock, 1000);
+
+// ---------- ナビ切り替え ----------
+document.querySelectorAll('.navbtn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.navbtn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.toolview').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+  });
+});
+
+// ---------- ストレージヘルパー ----------
+async function safeGet(key){
+  try{ const r = await window.storage.get(key); return r ? r.value : null; }
+  catch(e){ return null; }
+}
+async function safeSet(key, value){
+  try{ await window.storage.set(key, value); }
+  catch(e){ console.error('storage set failed', e); }
+}
+
+// ---------- 架空セクターデータ ----------
+const sectors = [
+  { code:'SECTOR-07', name:'TALON', angle: 20,  r: 0.82, level:'high', pop:'4.2M', gdp:72, stability:34, traffic:88,
+    desc:'国境地帯の通信トラフィックが急増。監視強化中。', region:'東部高原地帯' },
+  { code:'SECTOR-12', name:'VESPER', angle: 95, r: 0.5,  level:'mid',  pop:'11.8M', gdp:58, stability:61, traffic:47,
+    desc:'港湾都市。物流データに定期的な異常パターンあり。', region:'臨海工業圏' },
+  { code:'SECTOR-19', name:'OBSIDIAN', angle: 160, r:0.7, level:'low', pop:'2.1M', gdp:39, stability:88, traffic:22,
+    desc:'安定稼働中。特筆すべき異常なし。', region:'内陸資源地帯' },
+  { code:'SECTOR-23', name:'MERIDIAN', angle: 210, r:0.34, level:'mid', pop:'26.4M', gdp:81, stability:55, traffic:73,
+    desc:'首都圏。データ密度が高く常時解析対象。', region:'中央行政圏' },
+  { code:'SECTOR-31', name:'HALCYON', angle: 265, r:0.62, level:'low', pop:'6.7M', gdp:64, stability:79, traffic:31,
+    desc:'農業地帯。季節変動以外の異常なし。', region:'南部平原' },
+  { code:'SECTOR-44', name:'RAVELIN', angle: 320, r:0.88, level:'high', pop:'980K', gdp:22, stability:19, traffic:95,
+    desc:'情報統制区域。アクセスログに未承認接続を複数検知。', region:'国境検問区' },
+];
+
+const listEl = document.getElementById('sectorList');
+document.getElementById('sectorCount').textContent = sectors.length;
+const nodesLayer = document.getElementById('nodesLayer');
+const CX = 250, CY = 250, MAXR = 210;
+
+function polar(angleDeg, rFrac){
+  const rad = (angleDeg - 90) * Math.PI / 180;
+  const r = rFrac * MAXR;
+  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+}
+function levelLabel(l){ return l==='high' ? '警戒: 高' : l==='mid' ? '警戒: 中' : '警戒: 低'; }
+function levelClass(l){ return l==='high' ? 'lvl-high' : l==='mid' ? 'lvl-mid' : 'lvl-low'; }
+
+sectors.forEach((s, i) => {
+  const item = document.createElement('div');
+  item.className = 'sector-item';
+  item.dataset.idx = i;
+  item.innerHTML = `<div class="code">${s.code}</div><div class="name">${s.name}</div><div class="lvl ${levelClass(s.level)}">${levelLabel(s.level)}</div>`;
+  item.addEventListener('click', () => selectSector(i));
+  listEl.appendChild(item);
+
+  const p = polar(s.angle, s.r);
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class', 'node-blip' + (s.level==='high' ? ' alert' : ''));
+  g.dataset.idx = i;
+  g.innerHTML = `
+    <circle class="pulse" cx="${p.x}" cy="${p.y}" r="4"></circle>
+    <circle class="core" cx="${p.x}" cy="${p.y}" r="4"></circle>
+    <text class="node-label" x="${p.x+8}" y="${p.y-8}">${s.code}</text>
+  `;
+  g.addEventListener('click', () => selectSector(i));
+  nodesLayer.appendChild(g);
+});
+
+function selectSector(i){
+  const s = sectors[i];
+  document.querySelectorAll('.sector-item').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.sector-item[data-idx="${i}"]`).classList.add('active');
+
+  document.getElementById('dCode').textContent = s.code;
+  document.getElementById('dName').textContent = s.name;
+  document.getElementById('dDesc').textContent = s.desc;
+
+  const metrics = [
+    { name:'経済指数', val: s.gdp },
+    { name:'情勢安定度', val: s.stability },
+    { name:'通信トラフィック', val: s.traffic },
+    { name:'警戒レベル', val: s.level==='high'?90:s.level==='mid'?55:20 },
+  ];
+  document.getElementById('dMetrics').innerHTML = metrics.map(m => `
+    <div>
+      <div class="metric-name">${m.name}<span class="val">${m.val}</span></div>
+      <div class="meter"><i style="width:${m.val}%"></i></div>
+    </div>
+  `).join('');
+
+  document.getElementById('dSide').innerHTML = `
+    <div class="row"><span>地域区分</span><b>${s.region}</b></div>
+    <div class="row"><span>推定人口</span><b>${s.pop}</b></div>
+    <div class="row"><span>データ種別</span><b>MOCK / DEMO</b></div>
+    <div class="row"><span>更新間隔</span><b>60s</b></div>
+  `;
+
+  addLog(`ノード選択: ${s.code} (${s.name}) の詳細データを展開`, s.level==='high');
+}
+
+// ---------- ログフィード ----------
+const logEl = document.getElementById('logFeed');
+const logLines = [
+  '衛星リンク同期完了', 'キャッシュ再構築中...', 'バックアップ経路を確認',
+  'トラフィック解析バッチ実行', 'ノード応答時間: 正常範囲内', '暗号鍵ローテーション完了',
+  '外部接続試行を検知', 'セッションハートビート送信', 'ストレージ使用率: 変化なし',
+  'クロスリファレンス処理完了',
+];
+function addLog(text, warn){
+  const div = document.createElement('div');
+  if(warn) div.className = 'warn';
+  const t = new Date().toLocaleTimeString('ja-JP', {hour12:false});
+  div.innerHTML = `<span class="t">[${t}]</span>${text}`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+  while(logEl.children.length > 60) logEl.removeChild(logEl.firstChild);
+}
+setInterval(() => {
+  const line = logLines[Math.floor(Math.random()*logLines.length)];
+  addLog(line);
+}, 2800);
+addLog('システム起動: KAGEROU-NET v2.5 (デモ環境)');
+addLog('全セクターへの接続を確立');
+selectSector(0);
+
+// ================= TODO =================
+let todos = [];
+const todoListEl = document.getElementById('todoList');
+const todoCountEl = document.getElementById('todoCount');
+
+function renderTodos(){
+  todoListEl.innerHTML = '';
+  todoCountEl.textContent = todos.length;
+  if(todos.length === 0){
+    todoListEl.innerHTML = '<li class="empty-note">タスクなし。上の入力欄から追加してください。</li>';
+    return;
+  }
+  todos.forEach((t, i) => {
+    const li = document.createElement('li');
+    if(t.done) li.classList.add('done');
+    li.innerHTML = `<span class="box">${t.done ? '✓' : ''}</span><span class="txt"></span><span class="del">✕</span>`;
+    li.querySelector('.txt').textContent = t.text;
+    li.querySelector('.box').addEventListener('click', () => { todos[i].done = !todos[i].done; saveTodos(); renderTodos(); });
+    li.querySelector('.del').addEventListener('click', () => { todos.splice(i,1); saveTodos(); renderTodos(); });
+    todoListEl.appendChild(li);
+  });
+}
+async function saveTodos(){ await safeSet('kagerou:todos', JSON.stringify(todos)); }
+async function loadTodos(){
+  const v = await safeGet('kagerou:todos');
+  todos = v ? JSON.parse(v) : [];
+  renderTodos();
+}
+document.getElementById('todoAdd').addEventListener('click', addTodo);
+document.getElementById('todoInput').addEventListener('keydown', e => { if(e.key === 'Enter') addTodo(); });
+function addTodo(){
+  const input = document.getElementById('todoInput');
+  const text = input.value.trim();
+  if(!text) return;
+  todos.push({ text, done:false });
+  input.value = '';
+  saveTodos();
+  renderTodos();
+}
+loadTodos();
+
+// ================= MEMO =================
+const memoEl = document.getElementById('memoText');
+const saveStateEl = document.getElementById('saveState');
+let memoTimer = null;
+async function loadMemo(){
+  const v = await safeGet('kagerou:memo');
+  memoEl.value = v || '';
+}
+memoEl.addEventListener('input', () => {
+  saveStateEl.textContent = '入力中...';
+  clearTimeout(memoTimer);
+  memoTimer = setTimeout(async () => {
+    await safeSet('kagerou:memo', memoEl.value);
+    saveStateEl.textContent = '保存しました ' + new Date().toLocaleTimeString('ja-JP');
+  }, 600);
+});
+loadMemo();
+
+// ================= TIMER =================
+const RADIUS = 95;
+const CIRC = 2 * Math.PI * RADIUS;
+document.getElementById('ringFg').setAttribute('stroke-dasharray', CIRC);
+
+let totalSeconds = 25 * 60;
+let remaining = totalSeconds;
+let timerInterval = null;
+let running = false;
+let currentMode = 'WORK';
+
+const ringTimeEl = document.getElementById('ringTime');
+const ringFgEl = document.getElementById('ringFg');
+const ringModeEl = document.getElementById('ringMode');
+const startBtn = document.getElementById('timerStart');
+
+function updateRing(){
+  const mins = Math.floor(remaining / 60).toString().padStart(2,'0');
+  const secs = (remaining % 60).toString().padStart(2,'0');
+  ringTimeEl.textContent = `${mins}:${secs}`;
+  const frac = remaining / totalSeconds;
+  ringFgEl.setAttribute('stroke-dashoffset', CIRC * (1 - frac));
+}
+updateRing();
+
+function setMode(minutes, modeName, btn){
+  running = false;
+  clearInterval(timerInterval);
+  startBtn.textContent = '開始';
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  totalSeconds = minutes * 60;
+  remaining = totalSeconds;
+  currentMode = modeName;
+  ringModeEl.textContent = modeName;
+  updateRing();
+}
+document.getElementById('modeWork').addEventListener('click', function(){ setMode(25, 'WORK', this); });
+document.getElementById('modeBreak').addEventListener('click', function(){ setMode(5, 'BREAK', this); });
+
+startBtn.addEventListener('click', () => {
+  if(running){
+    running = false;
+    clearInterval(timerInterval);
+    startBtn.textContent = '開始';
+    return;
+  }
+  running = true;
+  startBtn.textContent = '一時停止';
+  timerInterval = setInterval(() => {
+    remaining--;
+    if(remaining <= 0){
+      remaining = 0;
+      updateRing();
+      clearInterval(timerInterval);
+      running = false;
+      startBtn.textContent = '開始';
+      ringModeEl.textContent = currentMode + ' 完了!';
+      return;
+    }
+    updateRing();
+  }, 1000);
+});
+document.getElementById('timerReset').addEventListener('click', () => {
+  running = false;
+  clearInterval(timerInterval);
+  remaining = totalSeconds;
+  startBtn.textContent = '開始';
+  ringModeEl.textContent = currentMode;
+  updateRing();
+});
+
+// ================= 換算(UNIT CONVERTER) =================
+const UNIT_DB = {
+  length: { label:'長さ', units:{
+    mm:{label:'mm ミリメートル', f:0.001}, cm:{label:'cm センチメートル', f:0.01}, m:{label:'m メートル', f:1}, km:{label:'km キロメートル', f:1000},
+    inch:{label:'inch インチ', f:0.0254}, ft:{label:'ft フィート', f:0.3048}, yard:{label:'yd ヤード', f:0.9144}, mile:{label:'mile マイル', f:1609.344}, nmi:{label:'海里', f:1852}
+  }},
+  weight: { label:'重さ', units:{
+    mg:{label:'mg ミリグラム', f:0.001}, g:{label:'g グラム', f:1}, kg:{label:'kg キログラム', f:1000}, t:{label:'t トン', f:1000000},
+    oz:{label:'oz オンス', f:28.3495}, lb:{label:'lb ポンド', f:453.592}
+  }},
+  temp: { label:'温度', units:{
+    C:{label:'℃ 摂氏'}, F:{label:'℉ 華氏'}, K:{label:'K ケルビン'}
+  }},
+  area: { label:'面積', units:{
+    cm2:{label:'cm²', f:0.0001}, m2:{label:'m²', f:1}, km2:{label:'km²', f:1000000},
+    tsubo:{label:'坪', f:3.305785}, tatami:{label:'畳(1畳)', f:1.6529}, acre:{label:'acre エーカー', f:4046.856}, ha:{label:'ha ヘクタール', f:10000}
+  }},
+  volume: { label:'体積', units:{
+    ml:{label:'ml ミリリットル', f:0.001}, l:{label:'L リットル', f:1}, m3:{label:'m³ 立方メートル', f:1000},
+    cup:{label:'カップ', f:0.2365882365}, gallon:{label:'gal(US) ガロン', f:3.785411784}, go:{label:'合', f:0.18039}, pint:{label:'pint パイント', f:0.473176}
+  }},
+  speed: { label:'速度', units:{
+    ms:{label:'m/s', f:1}, kmh:{label:'km/h', f:0.2777778}, mph:{label:'mph', f:0.44704}, knot:{label:'ノット', f:0.5144444}
+  }},
+  time: { label:'時間', units:{
+    sec:{label:'秒', f:1}, min:{label:'分', f:60}, hour:{label:'時間', f:3600}, day:{label:'日', f:86400}, week:{label:'週', f:604800}
+  }},
+  data: { label:'データ容量', units:{
+    b:{label:'B バイト', f:1}, kb:{label:'KB', f:1000}, mb:{label:'MB', f:1e6}, gb:{label:'GB', f:1e9}, tb:{label:'TB', f:1e12},
+    kib:{label:'KiB', f:1024}, mib:{label:'MiB', f:1048576}, gib:{label:'GiB', f:1073741824}
+  }},
+  pressure: { label:'圧力', units:{
+    pa:{label:'Pa パスカル', f:1}, hpa:{label:'hPa ヘクトパスカル', f:100}, kpa:{label:'kPa', f:1000}, atm:{label:'atm 気圧', f:101325}, bar:{label:'bar', f:100000}, mmhg:{label:'mmHg 水銀柱', f:133.322}
+  }},
+  angle: { label:'角度', units:{
+    deg:{label:'度', f:1}, rad:{label:'ラジアン', f:57.29578}, grad:{label:'グラード', f:0.9}
+  }},
+  energy: { label:'エネルギー', units:{
+    j:{label:'J ジュール', f:1}, kj:{label:'kJ', f:1000}, cal:{label:'cal カロリー', f:4.184}, kcal:{label:'kcal キロカロリー', f:4184}, wh:{label:'Wh', f:3600}, kwh:{label:'kWh', f:3600000}
+  }},
+};
+const CAT_ORDER = ['length','weight','temp','area','volume','speed','time','data','pressure','angle','energy'];
+
+let currentCategory = 'length';
+const catChipsEl = document.getElementById('catChips');
+const convFromEl = document.getElementById('convFrom');
+const convToEl = document.getElementById('convTo');
+const convInputEl = document.getElementById('convInput');
+const convResultEl = document.getElementById('convResult');
+const convHintEl = document.getElementById('convHint');
+
+function renderChips(){
+  catChipsEl.innerHTML = CAT_ORDER.map(k => `<button class="chip ${k===currentCategory?'active':''}" data-cat="${k}">${UNIT_DB[k].label}</button>`).join('');
+  catChipsEl.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+    currentCategory = b.dataset.cat;
+    renderChips();
+    renderUnitSelects();
+  }));
+}
+function renderUnitSelects(){
+  const units = UNIT_DB[currentCategory].units;
+  const keys = Object.keys(units);
+  const opts = keys.map(k => `<option value="${k}">${units[k].label}</option>`).join('');
+  convFromEl.innerHTML = opts;
+  convToEl.innerHTML = opts;
+  convFromEl.value = keys[0];
+  convToEl.value = keys[1] || keys[0];
+  convHintEl.textContent = `${UNIT_DB[currentCategory].label} の換算 / ${keys.length}単位対応`;
+  calcConv();
+}
+function tempToC(v,u){ if(u==='C') return v; if(u==='F') return (v-32)*5/9; return v-273.15; }
+function cToTemp(c,u){ if(u==='C') return c; if(u==='F') return c*9/5+32; return c+273.15; }
+function calcConv(){
+  const val = parseFloat(convInputEl.value);
+  if(isNaN(val)){ convResultEl.textContent = '—'; return; }
+  let result;
+  if(currentCategory === 'temp'){
+    const c = tempToC(val, convFromEl.value);
+    result = cToTemp(c, convToEl.value);
+  } else {
+    const units = UNIT_DB[currentCategory].units;
+    const base = val * units[convFromEl.value].f;
+    result = base / units[convToEl.value].f;
+  }
+  convResultEl.textContent = result.toLocaleString('ja-JP', { maximumFractionDigits: 6 });
+}
+convInputEl.addEventListener('input', calcConv);
+convFromEl.addEventListener('change', calcConv);
+convToEl.addEventListener('change', calcConv);
+renderChips();
+renderUnitSelects();
+</script>
+</body>
+</html>
