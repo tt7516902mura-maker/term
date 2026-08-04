@@ -170,7 +170,7 @@
         <div class="mon-metric"><div class="lbl">CPU<b id="mCpuVal">0%</b></div><div class="mon-bar"><i id="mCpu"></i></div></div>
         <div class="mon-metric"><div class="lbl">MEM<b id="mMemVal">0%</b></div><div class="mon-bar"><i id="mMem"></i></div></div>
         <div class="mon-metric"><div class="lbl">NET I/O<b id="mNetVal">0 KB/s</b></div><div class="mon-bar"><i id="mNet"></i></div></div>
-        <div class="mon-metric"><div class="lbl">暗号化負荷<b id="mEncVal">0%</b></div><div class="mon-bar warn"><i id="mEnc"></i></div></div>
+        <div class="mon-metric"><div class="lbl">ENCRYPT LOAD<b id="mEncVal">0%</b></div><div class="mon-bar warn"><i id="mEnc"></i></div></div>
         <div class="proc-title">PROCESSES</div>
         <div id="procList"></div>
       </div>
@@ -178,7 +178,7 @@
 
     <!-- TERMINAL -->
     <div class="panel">
-      <div class="panel-head">INTERACTIVE TERMINAL <span class="n mono">help でコマンド一覧</span></div>
+      <div class="panel-head">INTERACTIVE TERMINAL <span class="n mono">type help for commands</span></div>
       <div class="term-body">
         <div class="term-scroll" id="termScroll"></div>
         <div class="term-input-row">
@@ -196,8 +196,8 @@
       </div>
       <div class="panel-head">DECRYPTOR <span class="n mono">DEMO</span></div>
       <div class="decrypt-body">
-        <input id="decInput" type="text" placeholder="復号したい文字列を入力..." value="TOP-SECRET-PAYLOAD">
-        <button class="btn" id="decBtn">復号を実行</button>
+        <input id="decInput" type="text" placeholder="Enter text to decrypt..." value="TOP-SECRET-PAYLOAD">
+        <button class="btn" id="decBtn">RUN DECRYPT</button>
         <div class="decrypt-out" id="decOut"></div>
       </div>
     </div>
@@ -211,11 +211,11 @@
 </div>
 
 <script>
-/* ================= マトリクス背景 ================= */
+/* ================= Matrix background ================= */
 const canvas = document.getElementById('matrix');
 const ctx = canvas.getContext('2d');
 let W, H, cols, drops;
-const CHARS = 'アイウエオカキクケコサシスセソ0123456789ABCDEFｱｲｳｴｵｶｷｸｹｺ';
+const CHARS = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ$#%&@*+-<>/\\';
 function resizeCanvas(){
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
@@ -239,7 +239,7 @@ function drawMatrix(){
 }
 drawMatrix();
 
-/* ================= 時計 ================= */
+/* ================= Clock ================= */
 function tickClock(){
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('ja-JP',{hour12:false}) + ' JST';
 }
@@ -247,7 +247,7 @@ tickClock(); setInterval(tickClock, 1000);
 const ciphers = ['AES-256','RSA-4096','ChaCha20','SHA3-512','ECC-P521','Twofish-256'];
 setInterval(()=>{ document.getElementById('cipherName').textContent = ciphers[Math.floor(Math.random()*ciphers.length)]; }, 4000);
 
-/* ================= システムモニター ================= */
+/* ================= System monitor ================= */
 function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 function updateMonitor(){
   const cpu = rand(18,92), mem = rand(30,85), net = rand(2,980), enc = rand(10,70);
@@ -272,7 +272,7 @@ function updateProcs(){
 }
 updateProcs(); setInterval(updateProcs, 2600);
 
-/* ================= ネットワークマップ ================= */
+/* ================= Network map ================= */
 const netSvg = document.getElementById('netSvg');
 const netNodes = [];
 const NODE_COUNT = 9;
@@ -299,7 +299,7 @@ setInterval(renderNet, 1200);
 const netStats = ['SCANNING','SYNC','IDLE','HANDSHAKE','ROUTING'];
 setInterval(()=>{ document.getElementById('netStat').textContent = netStats[rand(0,netStats.length-1)]; }, 2000);
 
-/* ================= パケットストリーム ================= */
+/* ================= Packet stream ================= */
 const packetFeed = document.getElementById('packetFeed');
 function randIp(){ return `${rand(10,223)}.${rand(0,255)}.${rand(0,255)}.${rand(1,254)}`; }
 function randHex(len){ let s=''; for(let i=0;i<len;i++) s += rand(0,15).toString(16); return s; }
@@ -314,13 +314,13 @@ function addPacket(){
 setInterval(addPacket, 350);
 for(let i=0;i<15;i++) addPacket();
 
-/* ================= デクリプター ================= */
+/* ================= Decryptor ================= */
 const decBtn = document.getElementById('decBtn');
 const decInput = document.getElementById('decInput');
 const decOut = document.getElementById('decOut');
 const SCRAMBLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
 function fakeDecrypt(str){
-  // 見た目だけの変換(実在の暗号方式ではありません)
+  // visual transform only (not a real cipher)
   return str.split('').reverse().join('').replace(/[a-zA-Z]/g, c => {
     const base = c === c.toUpperCase() ? 65 : 97;
     return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
@@ -346,7 +346,7 @@ decBtn.addEventListener('click', () => {
   }, 45);
 });
 
-/* ================= インタラクティブターミナル ================= */
+/* ================= Interactive terminal ================= */
 const termScroll = document.getElementById('termScroll');
 const termInput = document.getElementById('termInput');
 let history = [];
@@ -378,16 +378,16 @@ function delayedLines(lines, gap){
 }
 
 const HELP_TEXT = [
-  'help                使用可能なコマンド一覧を表示',
-  'scan <target>       対象への擬似ポートスキャンを実行',
-  'connect <target>    対象への擬似接続を試行',
-  'trace <ip>          擬似トレースルートを表示',
-  'ping <host>         擬似pingを実行',
-  'decrypt <text>      文字列を復号する',
-  'whoami              現在のオペレーターIDを表示',
-  'status              システムステータスを表示',
-  'matrix              マトリクス表示を挿入',
-  'clear               画面をクリア',
+  'help                list available commands',
+  'scan <target>       run a simulated port scan on target',
+  'connect <target>    attempt a simulated connection to target',
+  'trace <ip>          show a simulated traceroute',
+  'ping <host>         run a simulated ping',
+  'decrypt <text>      decrypt a string',
+  'whoami              show current operator ID',
+  'status              show system status',
+  'matrix              insert a matrix display',
+  'clear               clear the screen',
 ];
 
 function handleCommand(raw){
@@ -445,8 +445,8 @@ function handleCommand(raw){
       const target = arg || randIp();
       printLine(`CONNECTING TO ${target} ...`, 'out2');
       delayedLines([
-        { text:'  ハンドシェイク送信中...', cls:'out2' },
-        { text:'  鍵交換完了', cls:'out2' },
+        { text:'  sending handshake...', cls:'out2' },
+        { text:'  key exchange complete', cls:'out2' },
         { text:`SESSION ESTABLISHED  id=${randHex(8)}`, cls:'out' },
       ], 350);
       break;
@@ -477,7 +477,7 @@ function handleCommand(raw){
 
     case 'decrypt': {
       const text = arg || 'NO-INPUT';
-      printLine('復号中...', 'out2');
+      printLine('Decrypting...', 'out2');
       setTimeout(() => printLine('RESULT: ' + fakeDecrypt(text), 'out'), 500);
       break;
     }
@@ -487,11 +487,11 @@ function handleCommand(raw){
       break;
 
     case 'exit':
-      printLine('SESSION TERMINATED (このコンソールはブラウザ内なので実際には閉じません)', 'warnln');
+      printLine('SESSION TERMINATED (this console runs in your browser, so it will not actually close)', 'warnln');
       break;
 
     default:
-      printLine(`command not found: ${cmd}  ("help" で一覧表示)`, 'errln');
+      printLine(`command not found: ${cmd}  (type "help" for a list)`, 'errln');
   }
 }
 
@@ -514,10 +514,10 @@ termInput.addEventListener('keydown', (e) => {
   }
 });
 
-// 起動シーケンス
-printLine('KAGEROU-NET BREACH CONSOLE v3.0 起動中...', 'out');
-printLine('全モジュールを初期化しています...', 'out2');
-setTimeout(() => printLine('SYSTEM READY. "help" と入力してコマンド一覧を表示できます。', 'out'), 500);
+// boot sequence
+printLine('KAGEROU-NET BREACH CONSOLE v3.0 booting...', 'out');
+printLine('Initializing all modules...', 'out2');
+setTimeout(() => printLine('SYSTEM READY. Type "help" to list commands.', 'out'), 500);
 termInput.focus();
 </script>
 </body>
